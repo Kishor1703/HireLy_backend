@@ -15,10 +15,10 @@ const applicationRoutes = require("../routes/applicationRoutes");
 // const serverless = require("serverless-http");
 const app = express();
 const port = process.env.PORT || 8000;
-const mongoUri = process.env.URI || process.env.DATABASE;
+const mongoUri = process.env.MONGO_URI || process.env.URI || process.env.DATABASE;
 
 if (!mongoUri) {
-  console.error("MongoDB URI is missing. Set MONGO_URI or DATABASE in .env.");
+  console.error("MongoDB URI is missing. Set MONGO_URI (or URI / DATABASE) in env.");
   process.exit(1);
 }
 
@@ -28,12 +28,7 @@ if (!process.env.JWT_SECRET) {
 }
 
 mongoose
-  .connect(mongoUri, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    useCreateIndex: true,
-    useFindAndModify: false,
-  })
+  .connect(mongoUri)
   .then(() => console.log("DB connected"))
   .catch((err) => console.log(err));
 
@@ -65,8 +60,6 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
-app.use(bodyParser.json({ limit: "5mb" }));
-app.use(bodyParser.urlencoded({ limit: "5mb", extended: true }));
 
 app.use("/api", authRoutes);
 app.use("/api", userRoutes);
