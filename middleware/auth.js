@@ -4,7 +4,11 @@
 
  // check is user is authenticated
  exports.isAuthenticated = async (req, res, next) =>{
-    const { token } = req.cookies;
+    let token = req.cookies?.token;
+    const authHeader = req.headers.authorization || req.headers.Authorization;
+    if (!token && authHeader && typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
+        token = authHeader.split(" ")[1];
+    }
     // make sre token exists
     if(!token){
         return next(new ErrorResponse('Not authorized to access this route', 401));

@@ -99,11 +99,18 @@ exports.signin = async (req, res, next)=>{
 
 const sendTokenResponse = async(user, codeStatus, res) =>{
     const token = await user.getJwtToken();
+    const isProduction = process.env.NODE_ENV === "production";
     res
     .status(codeStatus)
-    .cookie('token', token, { maxAge: 60*60*1000, httpOnly: true })
+    .cookie('token', token, {
+        maxAge: 60 * 60 * 1000,
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? "none" : "lax"
+    })
     .json({
         success: true,  
+        token,
         role: user.role,
         roleLabel: roleLabelByCode[user.role]
     })
@@ -111,7 +118,12 @@ const sendTokenResponse = async(user, codeStatus, res) =>{
 
 // logout 
 exports.logout = (req,res, next) => {
-    res.clearCookie('token');
+    const isProduction = process.env.NODE_ENV === "production";
+    res.clearCookie('token', {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? "none" : "lax"
+    });
     res.status(200).json({
         success: true,
         message: "logged out"
