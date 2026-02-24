@@ -6,12 +6,12 @@ const cors = require("cors");
 const cookieParser = require("cookie-parser");
 require("dotenv").config();
 
-const errorHandler = require("./middleware/error");
-const authRoutes = require("./routes/authRoutes");
-const userRoutes = require("./routes/userRoutes");
-const jobsTypeRoutes = require("./routes/jobsTypeRoutes");
-const jobsRoutes = require("./routes/jobsRoutes");
-const applicationRoutes = require("./routes/applicationRoutes");
+const errorHandler = require("../middleware/error");
+const authRoutes = require("../routes/authRoutes");
+const userRoutes = require("../routes/userRoutes");
+const jobsTypeRoutes = require("../routes/jobsTypeRoutes");
+const jobsRoutes = require("../routes/jobsRoutes");
+const applicationRoutes = require("../routes/applicationRoutes");
 // const serverless = require("serverless-http");
 const app = express();
 const port = process.env.PORT || 8000;
@@ -46,12 +46,25 @@ app.use(
   })
 );
 app.use(cookieParser());
-app.use(
-  cors({
-    origin: process.env.FRONTEND_ORIGIN || 'https://hire-ly.vercel.app/',
-    credentials: true,
-  })
-);
+const allowedOrigins = [
+  (process.env.FRONTEND_ORIGIN || "https://hire-ly.vercel.app").replace(/\/$/, ""),
+  "https://hire-ly.vercel.app",
+  "http://localhost:3000",
+];
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin) return callback(null, true);
+    const normalizedOrigin = origin.replace(/\/$/, "");
+    if (allowedOrigins.includes(normalizedOrigin)) {
+      return callback(null, true);
+    }
+    return callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+};
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(bodyParser.json({ limit: "5mb" }));
 app.use(bodyParser.urlencoded({ limit: "5mb", extended: true }));
 
@@ -70,3 +83,5 @@ if (process.env.NODE_ENV !== "production") {
     console.log(`Server running on port ${PORT}`);
   });
 }
+
+module.exports = app;
