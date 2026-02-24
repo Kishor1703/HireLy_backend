@@ -52,16 +52,26 @@ exports.applyToJob = async (req, res) => {
     });
     await application.save();
 
-    // Keep employee dashboard history in sync with applied jobs.
+    // Save latest application contact data to employee profile and keep history in sync.
     await User.findByIdAndUpdate(
       seekerId,
       {
+        $set: {
+          firstName: applicantFirstName,
+          lastName: applicantLastName,
+          email: applicantEmail,
+          phone: applicantPhone,
+          resume: resume.trim(),
+        },
         $push: {
           jobsHistory: {
+            jobId: job._id,
             title: job.title,
             description: job.description,
             salary: job.salary,
             location: job.location,
+            companyName: job.companyName,
+            companyLogo: job.companyLogo,
             applicationStatus: 'pending',
             user: seekerId,
           },
@@ -87,6 +97,32 @@ exports.getPosterApplications = async (req, res, next) => {
         path: 'job',
         select: 'title location salary companyName companyLogo user',
         match: { user: req.user._id },
+      })
+      .sort({ createdAt: -1 });
+
+    const filtered = applications.filter((app) => app.job);
+
+    res.status(200).json({
+      success: true,
+      count: filtered.length,
+      applications: filtered,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Employee - view own applications
+exports.getSeekerApplications = async (req, res, next) => {
+  try {
+    if (req.user.role !== 0) {
+      return next(new ErrorResponse('Only employees can view these applications', 403));
+    }
+
+    const applications = await Application.find({ seeker: req.user._id })
+      .populate({
+        path: 'job',
+        select: 'title description location salary companyName companyLogo',
       })
       .sort({ createdAt: -1 });
 

@@ -7,6 +7,10 @@ const jwt = require("jsonwebtoken");
 
 
 const jobsHistorySchema = new mongoose.Schema({
+    jobId: {
+        type: ObjectId,
+        ref: "Job"
+    },
 
     title: {
         type: String,
@@ -24,6 +28,14 @@ const jobsHistorySchema = new mongoose.Schema({
     },
     location: {
         type: String,
+    },
+    companyName: {
+        type: String,
+        trim: true
+    },
+    companyLogo: {
+        type: String,
+        trim: true
     },
     interviewDate: {
         type: Date,
@@ -68,6 +80,14 @@ const userSchema = new mongoose.Schema({
             /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
             'Please add a valid email'
         ]
+    },
+    phone: {
+        type: String,
+        trim: true
+    },
+    resume: {
+        type: String,
+        trim: true
     },
     password: {
         type: String,

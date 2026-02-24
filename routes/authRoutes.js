@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { signup, signin, logout, userProfile, updateCompanyProfile } = require("../controllers/authController");
+const { signup, signin, logout, userProfile, updateUserProfile, updateCompanyProfile } = require("../controllers/authController");
 const { isAuthenticated } = require('../middleware/auth');
 
 
@@ -22,6 +22,9 @@ router.get('/logout', logout);
 
 // /api/me
 router.get('/me', isAuthenticated, userProfile);
+router.put('/me/profile', isAuthenticated, updateUserProfile);
+router.patch('/me/profile', isAuthenticated, updateUserProfile);
+router.post('/me/profile', isAuthenticated, updateUserProfile);
 router.put('/me/company-profile', isAuthenticated, updateCompanyProfile);
 
 
