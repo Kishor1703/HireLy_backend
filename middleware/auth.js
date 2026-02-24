@@ -6,8 +6,19 @@
  exports.isAuthenticated = async (req, res, next) =>{
     let token = req.cookies?.token;
     const authHeader = req.headers.authorization || req.headers.Authorization;
-    if (!token && authHeader && typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
-        token = authHeader.split(" ")[1];
+
+    if (!token && authHeader && typeof authHeader === "string") {
+        token = authHeader.startsWith("Bearer ")
+            ? authHeader.split(" ")[1]
+            : authHeader.trim();
+    }
+
+    if (!token) {
+        token = req.headers["x-auth-token"] || req.headers["token"];
+    }
+
+    if (!token) {
+        token = req.body?.token || req.query?.token;
     }
     // make sre token exists
     if(!token){
