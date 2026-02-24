@@ -12,7 +12,7 @@ const userRoutes = require("./routes/userRoutes");
 const jobsTypeRoutes = require("./routes/jobsTypeRoutes");
 const jobsRoutes = require("./routes/jobsRoutes");
 const applicationRoutes = require("./routes/applicationRoutes");
-const serverless = require("serverless-http");
+// const serverless = require("serverless-http");
 const app = express();
 const port = process.env.PORT || 8000;
 const mongoUri = process.env.URI || process.env.DATABASE;
@@ -63,5 +63,10 @@ app.use("/api/applications", applicationRoutes);
 
 app.use(errorHandler);
 
-module.exports = app;
-module.exports.handler = serverless(app);
+// local dev only
+if (process.env.NODE_ENV !== "production") {
+  const PORT = process.env.PORT || 8000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
