@@ -7,17 +7,13 @@ const ErrorResponse = require('../utils/errorResponse');
 exports.applyToJob = async (req, res) => {
   const { jobId, resume, firstName, lastName, email, phone } = req.body;
   const seekerId = req.user._id;
+  const normalizedResume = String(resume || '').trim();
 
   try {
-    if (!jobId || !resume) {
+    if (!jobId || !normalizedResume) {
       return res.status(400).json({
         message: 'jobId and resume are required',
       });
-    }
-
-    const resumePattern = /^https?:\/\/\S+$/i;
-    if (!resumePattern.test(resume.trim())) {
-      return res.status(400).json({ message: 'Please provide a valid resume URL' });
     }
 
     const job = await Job.findById(jobId);
@@ -48,7 +44,7 @@ exports.applyToJob = async (req, res) => {
       lastName: applicantLastName,
       email: applicantEmail,
       phone: applicantPhone,
-      resume: resume.trim(),
+      resume: normalizedResume,
     });
     await application.save();
 
@@ -61,7 +57,7 @@ exports.applyToJob = async (req, res) => {
           lastName: applicantLastName,
           email: applicantEmail,
           phone: applicantPhone,
-          resume: resume.trim(),
+          resume: normalizedResume,
         },
         $push: {
           jobsHistory: {

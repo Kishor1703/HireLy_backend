@@ -42,8 +42,8 @@ app.use(
 );
 app.use(cookieParser());
 const allowedOrigins = [
-  (process.env.FRONTEND_ORIGIN || "https://hire-ly.vercel.app").replace(/\/$/, ""),
-  "https://hire-ly.vercel.app",
+  (process.env.FRONTEND_ORIGIN || "https://hire-ly.vercel.app/").replace(/\/$/, ""),
+  "https://hire-ly.vercel.app/",
   "http://localhost:3000",
 ];
 const corsOptions = {
@@ -79,3 +79,4 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 module.exports = app;
+
