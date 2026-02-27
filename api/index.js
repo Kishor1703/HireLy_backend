@@ -43,7 +43,7 @@ app.use(
 app.use(cookieParser());
 const allowedOrigins = [
   (process.env.FRONTEND_ORIGIN || "https://hire-ly.vercel.app/").replace(/\/$/, ""),
-  "https://hire-ly.vercel.app/",
+  "https://hire-ly.vercel.app/","https://talent-sphere-qqrm.vercel.app/","https://talent-sphere-qqrm.vercel.app/".replace(/\/$/, ""),
   "http://localhost:3000",
 ];
 const corsOptions = {
