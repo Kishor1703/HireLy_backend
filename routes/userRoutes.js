@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { allUsers, singleUser, editUser, deleteUser, createUserJobsHistory } = require("../controllers/userController");
+const { allUsers, singleUser, editUser, deleteUser, createUserJobsHistory, adminStats } = require("../controllers/userController");
 const { isAuthenticated, isAdmin } = require('../middleware/auth');
 
 
@@ -9,6 +9,8 @@ const { isAuthenticated, isAdmin } = require('../middleware/auth');
 
 // /api/allUsers
 router.get('/allUsers', isAuthenticated, isAdmin, allUsers);
+router.get('/admin/users', isAuthenticated, isAdmin, allUsers);
+router.get('/admin/stats', isAuthenticated, isAdmin, adminStats);
 
 // /api/user/id
 router.get('/user/:id', isAuthenticated, singleUser);

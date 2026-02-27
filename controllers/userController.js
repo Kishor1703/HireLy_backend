@@ -1,17 +1,40 @@
 const User = require('../models/userModel');
+const Job = require('../models/jobModel');
+const Application = require('../models/Application');
 const ErrorResponse = require('../utils/errorResponse');
 
 //load all users
 exports.allUsers = async (req, res, next) => {
-    //enable pagination
-    const pageSize = 10;
-    const page = Number(req.query.pageNumber) || 1;
-    const count = await User.find({}).estimatedDocumentCount();
-
     try {
-        const users = await User.find().sort({ createdAt: -1 }).select('-password')
+        const pageSize = Number(req.query.pageSize) || 10;
+        const page = Number(req.query.pageNumber) || 1;
+        const roleQuery = req.query.role;
+        const keyword = (req.query.keyword || '').trim();
+        const filter = {};
+
+        if (roleQuery !== undefined && roleQuery !== '') {
+            const parsedRole = Number(roleQuery);
+            if (![0, 1, 2].includes(parsedRole)) {
+                return next(new ErrorResponse('Invalid role filter', 400));
+            }
+            filter.role = parsedRole;
+        }
+
+        if (keyword) {
+            filter.$or = [
+                { firstName: { $regex: keyword, $options: 'i' } },
+                { lastName: { $regex: keyword, $options: 'i' } },
+                { email: { $regex: keyword, $options: 'i' } },
+                { companyName: { $regex: keyword, $options: 'i' } }
+            ];
+        }
+
+        const count = await User.countDocuments(filter);
+        const users = await User.find(filter)
+            .sort({ createdAt: -1 })
+            .select('-password')
             .skip(pageSize * (page - 1))
-            .limit(pageSize)
+            .limit(pageSize);
 
         res.status(200).json({
             success: true,
@@ -58,16 +81,77 @@ exports.editUser = async (req, res, next) => {
 //delete user
 exports.deleteUser = async (req, res, next) => {
     try {
-        const user = await User.findByIdAndRemove(req.params.id);
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return next(new ErrorResponse('User not found', 404));
+        }
+
+        if (String(user._id) === String(req.user._id)) {
+            return next(new ErrorResponse('Admin cannot delete own account', 400));
+        }
+
+        let deletedJobsCount = 0;
+        let deletedApplicationsCount = 0;
+
+        if (user.role === 2) {
+            const posterJobs = await Job.find({ user: user._id }).select('_id');
+            const posterJobIds = posterJobs.map((job) => job._id);
+
+            if (posterJobIds.length > 0) {
+                const deletedApps = await Application.deleteMany({ job: { $in: posterJobIds } });
+                deletedApplicationsCount += deletedApps.deletedCount || 0;
+            }
+
+            const deletedJobs = await Job.deleteMany({ user: user._id });
+            deletedJobsCount = deletedJobs.deletedCount || 0;
+        }
+
+        if (user.role === 0) {
+            const deletedApps = await Application.deleteMany({ seeker: user._id });
+            deletedApplicationsCount += deletedApps.deletedCount || 0;
+        }
+
+        await User.findByIdAndDelete(req.params.id);
+
         res.status(200).json({
             success: true,
-            message: "user deleted"
+            message: "User deleted",
+            cleanup: {
+                deletedJobsCount,
+                deletedApplicationsCount
+            }
         })
 
     } catch (error) {
         return next(error);
     }
 }
+
+// admin dashboard stats
+exports.adminStats = async (req, res, next) => {
+    try {
+        const [employees, admins, companies, jobs, applications] = await Promise.all([
+            User.countDocuments({ role: 0 }),
+            User.countDocuments({ role: 1 }),
+            User.countDocuments({ role: 2 }),
+            Job.countDocuments({}),
+            Application.countDocuments({})
+        ]);
+
+        res.status(200).json({
+            success: true,
+            stats: {
+                employees,
+                admins,
+                companies,
+                jobs,
+                applications
+            }
+        });
+    } catch (error) {
+        return next(error);
+    }
+};
 
 //jobs history
 exports.createUserJobsHistory = async (req, res, next) => {
