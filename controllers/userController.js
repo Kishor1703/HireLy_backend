@@ -130,10 +130,13 @@ exports.deleteUser = async (req, res, next) => {
 // admin dashboard stats
 exports.adminStats = async (req, res, next) => {
     try {
-        const [employees, admins, companies, jobs, applications] = await Promise.all([
+        const [employees, admins, companies, pendingCompanies, approvedCompanies, rejectedCompanies, jobs, applications] = await Promise.all([
             User.countDocuments({ role: 0 }),
             User.countDocuments({ role: 1 }),
             User.countDocuments({ role: 2 }),
+            User.countDocuments({ role: 2, companyApprovalStatus: 'pending' }),
+            User.countDocuments({ role: 2, companyApprovalStatus: 'approved' }),
+            User.countDocuments({ role: 2, companyApprovalStatus: 'rejected' }),
             Job.countDocuments({}),
             Application.countDocuments({})
         ]);
@@ -144,9 +147,41 @@ exports.adminStats = async (req, res, next) => {
                 employees,
                 admins,
                 companies,
+                pendingCompanies,
+                approvedCompanies,
+                rejectedCompanies,
                 jobs,
                 applications
             }
+        });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+// admin: approve or reject a company account (job poster)
+exports.updateCompanyApproval = async (req, res, next) => {
+    try {
+        const status = String(req.body.status || '').toLowerCase().trim();
+        if (!['approved', 'rejected', 'pending'].includes(status)) {
+            return next(new ErrorResponse('Invalid approval status', 400));
+        }
+
+        const companyUser = await User.findById(req.params.id).select('-password');
+        if (!companyUser) {
+            return next(new ErrorResponse('Company user not found', 404));
+        }
+        if (companyUser.role !== 2) {
+            return next(new ErrorResponse('Target user is not a company account', 400));
+        }
+
+        companyUser.companyApprovalStatus = status;
+        await companyUser.save();
+
+        res.status(200).json({
+            success: true,
+            message: `Company status updated to ${status}`,
+            user: companyUser
         });
     } catch (error) {
         return next(error);

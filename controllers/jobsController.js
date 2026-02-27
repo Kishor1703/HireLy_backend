@@ -9,6 +9,11 @@ exports.createJob = async(req, res, next) => {
         let companyLogo = (req.body.companyLogo || "").trim();
 
         if (req.user.role === 2) {
+            const companyApprovalStatus = req.user.companyApprovalStatus || 'approved';
+            if (companyApprovalStatus !== 'approved') {
+                return next(new ErrorResponse("Your company is not approved yet. Please wait for admin approval.", 403));
+            }
+
             companyName = (req.user.companyName || companyName || "").trim();
             companyLogo = (req.user.companyLogo || companyLogo || "").trim();
             if (!companyName) {
@@ -147,6 +152,10 @@ exports.updatePosterJob = async (req, res, next) => {
     try {
         if (req.user.role !== 2) {
             return next(new ErrorResponse("Only job posters can update jobs", 403));
+        }
+        const companyApprovalStatus = req.user.companyApprovalStatus || 'approved';
+        if (companyApprovalStatus !== 'approved') {
+            return next(new ErrorResponse("Your company is not approved yet. Please wait for admin approval.", 403));
         }
 
         const job = await Job.findById(req.params.job_id);

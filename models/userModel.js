@@ -116,6 +116,13 @@ const userSchema = new mongoose.Schema({
     companyLogo: {
         type: String,
         trim: true
+    },
+    companyApprovalStatus: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: function () {
+            return this.role === 2 ? 'pending' : 'approved';
+        }
     }
 
 }, { timestamps: true })
