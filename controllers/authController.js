@@ -1,11 +1,65 @@
 const  User = require('../models/userModel');
 const Application = require('../models/Application');
 const ErrorResponse = require("../utils/errorResponse");
+const crypto = require("crypto");
+const sendEmail = require("../utils/sendEmail");
 
 const roleLabelByCode = {
     0: "employee",
     1: "admin",
     2: "jobPoster",
+};
+
+const getFrontendBaseUrl = () => (
+    process.env.FRONTEND_ORIGIN ||
+    process.env.CLIENT_URL ||
+    "http://localhost:3000"
+).replace(/\/+$/, "");
+
+const buildVerificationEmail = (verificationUrl) => {
+    const subject = "Verify your HireLy account email";
+    const text = `Welcome to HireLy. Verify your email by clicking this link: ${verificationUrl}`;
+    const html = `
+        <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5;">
+            <h2 style="margin-bottom: 12px;">Verify your email</h2>
+            <p style="margin: 0 0 12px;">Welcome to HireLy. Click the button below to verify your email address.</p>
+            <p style="margin: 20px 0;">
+                <a href="${verificationUrl}" style="background:#1e4fd8;color:#ffffff;padding:10px 16px;border-radius:6px;text-decoration:none;display:inline-block;">
+                    Verify Email
+                </a>
+            </p>
+            <p style="margin: 0;">If the button does not work, use this link:</p>
+            <p style="word-break: break-all; margin: 8px 0 0;">${verificationUrl}</p>
+        </div>
+    `;
+
+    return { subject, text, html };
+};
+
+const sendVerificationEmailToUser = async (user) => {
+    const verificationToken = user.getEmailVerificationToken();
+    await user.save({ validateBeforeSave: false });
+
+    const verificationUrl = `${getFrontendBaseUrl()}/verify-email?token=${verificationToken}`;
+    const { subject, text, html } = buildVerificationEmail(verificationUrl);
+
+    try {
+        await sendEmail({
+            to: user.email,
+            subject,
+            text,
+            html
+        });
+    } catch (error) {
+        // Keep the account created but return a clear actionable error.
+        user.emailVerificationToken = undefined;
+        user.emailVerificationExpire = undefined;
+        await user.save({ validateBeforeSave: false });
+        throw new ErrorResponse(
+            "Account created, but verification email could not be sent. Please try resend verification.",
+            500
+        );
+    }
 };
 
 
@@ -34,11 +88,22 @@ exports.signup = async (req, res, next)=>{
             ...req.body,
             email,
             role,
-            companyName: normalizedCompanyName || undefined
+            companyName: normalizedCompanyName || undefined,
+            isEmailVerified: false
         });
+
+        await sendVerificationEmailToUser(user);
+
         res.status(201).json({
             success: true,
-            user
+            message: "Registration successful. Please verify your email before login.",
+            user: {
+                _id: user._id,
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                role: user.role
+            }
         })
     } catch (error) {
         next(error);
@@ -68,6 +133,10 @@ exports.signin = async (req, res, next)=>{
             return next(new ErrorResponse("invalid credentials", 400));
         }
 
+        if (!user.isEmailVerified) {
+            return next(new ErrorResponse("Please verify your email before logging in.", 403));
+        }
+
         const roleByLoginType = {
             employee: 0,
             admin: 1,
@@ -93,6 +162,71 @@ exports.signin = async (req, res, next)=>{
         sendTokenResponse(user, 200, res);
 
 
+    } catch (error) {
+        next(error);
+    }
+}
+
+exports.verifyEmail = async (req, res, next) => {
+    try {
+        const token = (req.query.token || req.body.token || "").trim();
+        if (!token) {
+            return next(new ErrorResponse("Verification token is required", 400));
+        }
+
+        const hashedToken = crypto
+            .createHash("sha256")
+            .update(token)
+            .digest("hex");
+
+        const user = await User.findOne({
+            emailVerificationToken: hashedToken,
+            emailVerificationExpire: { $gt: Date.now() }
+        });
+
+        if (!user) {
+            return next(new ErrorResponse("Verification link is invalid or expired", 400));
+        }
+
+        user.isEmailVerified = true;
+        user.emailVerificationToken = undefined;
+        user.emailVerificationExpire = undefined;
+        await user.save({ validateBeforeSave: false });
+
+        res.status(200).json({
+            success: true,
+            message: "Email verified successfully. You can now log in."
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+exports.resendVerificationEmail = async (req, res, next) => {
+    try {
+        const email = (req.body.email || "").trim().toLowerCase();
+        if (!email) {
+            return next(new ErrorResponse("please add email", 400));
+        }
+
+        const user = await User.findOne({ email });
+        if (!user) {
+            return next(new ErrorResponse("No account found with this email", 404));
+        }
+
+        if (user.isEmailVerified) {
+            return res.status(200).json({
+                success: true,
+                message: "Email is already verified."
+            });
+        }
+
+        await sendVerificationEmailToUser(user);
+
+        res.status(200).json({
+            success: true,
+            message: "Verification email sent."
+        });
     } catch (error) {
         next(error);
     }

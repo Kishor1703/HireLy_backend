@@ -1,6 +1,15 @@
 const express = require("express");
 const router = express.Router();
-const { signup, signin, logout, userProfile, updateUserProfile, updateCompanyProfile } = require("../controllers/authController");
+const {
+    signup,
+    signin,
+    logout,
+    userProfile,
+    updateUserProfile,
+    updateCompanyProfile,
+    verifyEmail,
+    resendVerificationEmail
+} = require("../controllers/authController");
 const { isAuthenticated } = require('../middleware/auth');
 
 
@@ -8,6 +17,9 @@ const { isAuthenticated } = require('../middleware/auth');
 // /api/signup
 router.post('/signup', signup);
 router.post('/users/register', signup);
+router.get('/verify-email', verifyEmail);
+router.post('/verify-email', verifyEmail);
+router.post('/resend-verification', resendVerificationEmail);
 
 // /api/signin
 router.post('/signin', signin);

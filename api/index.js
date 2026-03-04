@@ -4,7 +4,8 @@ const morgan = require("morgan");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
-require("dotenv").config();
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, ".env") });
 
 const errorHandler = require("../middleware/error");
 const authRoutes = require("../routes/authRoutes");
@@ -42,9 +43,9 @@ app.use(
 );
 app.use(cookieParser());
 const allowedOrigins = [
-  (process.env.FRONTEND_ORIGIN || "https://talent-sphere-qqrm.vercel.app/").replace(/\/$/, ""),
+  (process.env.FRONTEND_ORIGIN ||"https://talent-sphere-qqrm.vercel.app/").replace(/\/$/, ""),
   "https://hire-ly.vercel.app/","https://talent-sphere-qqrm.vercel.app/","https://talent-sphere-qqrm.vercel.app/".replace(/\/$/, ""),
-  "http://localhost:3000",
+  ,
 ];
 const corsOptions = {
   origin(origin, callback) {
@@ -79,4 +80,3 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 module.exports = app;
-

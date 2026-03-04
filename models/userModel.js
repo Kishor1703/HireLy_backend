@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const { ObjectId } = mongoose.Schema;
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 
 
 
@@ -123,6 +124,16 @@ const userSchema = new mongoose.Schema({
         default: function () {
             return this.role === 2 ? 'pending' : 'approved';
         }
+    },
+    isEmailVerified: {
+        type: Boolean,
+        default: false
+    },
+    emailVerificationToken: {
+        type: String
+    },
+    emailVerificationExpire: {
+        type: Date
     }
 
 }, { timestamps: true })
@@ -145,6 +156,19 @@ userSchema.methods.getJwtToken = function () {
     return jwt.sign({ id: this.id }, process.env.JWT_SECRET, {
         expiresIn: 3600
     });
+}
+
+// Generate a one-time email verification token and persist its hash.
+userSchema.methods.getEmailVerificationToken = function () {
+    const verificationToken = crypto.randomBytes(32).toString("hex");
+
+    this.emailVerificationToken = crypto
+        .createHash("sha256")
+        .update(verificationToken)
+        .digest("hex");
+
+    this.emailVerificationExpire = Date.now() + 1000 * 60 * 60; // 1 hour
+    return verificationToken;
 }
 
 
