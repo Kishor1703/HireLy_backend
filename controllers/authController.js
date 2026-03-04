@@ -17,12 +17,12 @@ const getFrontendBaseUrl = () => (
 ).replace(/\/+$/, "");
 
 const buildVerificationEmail = (verificationUrl) => {
-    const subject = "Verify your HireLy account email";
-    const text = `Welcome to HireLy. Verify your email by clicking this link: ${verificationUrl}`;
+    const subject = "Verify your Talent Sphere account email";
+    const text = `Welcome to Talent Sphere. Verify your email by clicking this link: ${verificationUrl}`;
     const html = `
         <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5;">
             <h2 style="margin-bottom: 12px;">Verify your email</h2>
-            <p style="margin: 0 0 12px;">Welcome to HireLy. Click the button below to verify your email address.</p>
+            <p style="margin: 0 0 12px;">Welcome to Talent Sphere. Click the button below to verify your email address.</p>
             <p style="margin: 20px 0;">
                 <a href="${verificationUrl}" style="background:#1e4fd8;color:#ffffff;padding:10px 16px;border-radius:6px;text-decoration:none;display:inline-block;">
                     Verify Email
@@ -132,6 +132,15 @@ exports.signin = async (req, res, next)=>{
         const isMatch = await user.comparePassword(password);
         if(!isMatch){
             return next(new ErrorResponse("invalid credentials", 400));
+        }
+
+        // Backward compatibility: accounts created before email verification rollout
+        // won't have isEmailVerified set. Auto-mark them verified on first successful login.
+        if (typeof user.isEmailVerified === "undefined" || user.isEmailVerified === null) {
+            user.isEmailVerified = true;
+            user.emailVerificationToken = undefined;
+            user.emailVerificationExpire = undefined;
+            await user.save({ validateBeforeSave: false });
         }
 
         if (!user.isEmailVerified) {
