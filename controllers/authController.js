@@ -36,6 +36,26 @@ const buildVerificationEmail = (verificationUrl) => {
     return { subject, text, html };
 };
 
+const buildForgotPasswordEmail = (resetUrl) => {
+    const subject = "Reset your Talent Sphere account password";
+    const text = `Reset your password using this link: ${resetUrl}. This link expires in 30 minutes.`;
+    const html = `
+        <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5;">
+            <h2 style="margin-bottom: 12px;">Reset your password</h2>
+            <p style="margin: 0 0 12px;">Click the button below to set a new password. This link expires in 30 minutes.</p>
+            <p style="margin: 20px 0;">
+                <a href="${resetUrl}" style="background:#1e4fd8;color:#ffffff;padding:10px 16px;border-radius:6px;text-decoration:none;display:inline-block;">
+                    Reset Password
+                </a>
+            </p>
+            <p style="margin: 0;">If the button does not work, use this link:</p>
+            <p style="word-break: break-all; margin: 8px 0 0;">${resetUrl}</p>
+        </div>
+    `;
+
+    return { subject, text, html };
+};
+
 const sendVerificationEmailToUser = async (user) => {
     const verificationToken = user.getEmailVerificationToken();
     await user.save({ validateBeforeSave: false });
@@ -236,6 +256,99 @@ exports.resendVerificationEmail = async (req, res, next) => {
         res.status(200).json({
             success: true,
             message: "Verification email sent."
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+exports.forgotPassword = async (req, res, next) => {
+    try {
+        const email = (req.body.email || "").trim().toLowerCase();
+        if (!email) {
+            return next(new ErrorResponse("please add email", 400));
+        }
+
+        const user = await User.findOne({ email });
+
+        // Do not reveal whether the email exists.
+        if (!user) {
+            return res.status(200).json({
+                success: true,
+                message: "If an account with that email exists, a password reset link has been sent."
+            });
+        }
+
+        const resetToken = user.getResetPasswordToken();
+        await user.save({ validateBeforeSave: false });
+
+        const resetUrl = `${getFrontendBaseUrl()}/reset-password?token=${resetToken}`;
+        const { subject, text, html } = buildForgotPasswordEmail(resetUrl);
+
+        try {
+            await sendEmail({
+                to: user.email,
+                subject,
+                text,
+                html
+            });
+        } catch (error) {
+            user.resetPasswordToken = undefined;
+            user.resetPasswordExpire = undefined;
+            await user.save({ validateBeforeSave: false });
+            return next(new ErrorResponse("Password reset email could not be sent. Please try again.", 500));
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "If an account with that email exists, a password reset link has been sent."
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+exports.resetPassword = async (req, res, next) => {
+    try {
+        const token = (req.params.token || req.body.token || "").trim();
+        const password = (req.body.password || "").trim();
+        const confirmPassword = (req.body.confirmPassword || "").trim();
+
+        if (!token) {
+            return next(new ErrorResponse("Reset token is required", 400));
+        }
+        if (!password) {
+            return next(new ErrorResponse("please add password", 400));
+        }
+        if (password.length < 6) {
+            return next(new ErrorResponse("password must have at least (6) caracters", 400));
+        }
+        if (confirmPassword && password !== confirmPassword) {
+            return next(new ErrorResponse("Password and confirm password do not match", 400));
+        }
+
+        const hashedToken = crypto
+            .createHash("sha256")
+            .update(token)
+            .digest("hex");
+
+        const user = await User.findOne({
+            resetPasswordToken: hashedToken,
+            resetPasswordExpire: { $gt: Date.now() }
+        });
+
+        if (!user) {
+            return next(new ErrorResponse("Password reset token is invalid or expired", 400));
+        }
+
+        user.password = password;
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpire = undefined;
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: "Password updated successfully. Please log in with your new password."
         });
     } catch (error) {
         next(error);

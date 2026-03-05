@@ -134,6 +134,12 @@ const userSchema = new mongoose.Schema({
     },
     emailVerificationExpire: {
         type: Date
+    },
+    resetPasswordToken: {
+        type: String
+    },
+    resetPasswordExpire: {
+        type: Date
     }
 
 }, { timestamps: true })
@@ -169,6 +175,19 @@ userSchema.methods.getEmailVerificationToken = function () {
 
     this.emailVerificationExpire = Date.now() + 1000 * 60 * 60; // 1 hour
     return verificationToken;
+}
+
+// Generate one-time password reset token and persist its hash.
+userSchema.methods.getResetPasswordToken = function () {
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    this.resetPasswordToken = crypto
+        .createHash("sha256")
+        .update(resetToken)
+        .digest("hex");
+
+    this.resetPasswordExpire = Date.now() + 1000 * 60 * 30; // 30 minutes
+    return resetToken;
 }
 
 
