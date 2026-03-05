@@ -45,7 +45,7 @@ exports.singleJob = async(req, res, next) => {
     try {
         const job = await Job.findById(req.params.id)
             .populate('jobType', 'jobTypeName')
-            .populate('user', 'firstName lastName email companyName companyProfile companyLogo');
+            .populate('user', 'firstName lastName email companyName companyProfile companyLogo companyVerified');
         res.status(200).json({
             success: true,
             job
@@ -109,6 +109,7 @@ exports.showJobs = async(req, res, next) => {
     try {
         const jobs = await Job.find({...keyword, jobType: categ, location: locationFilter})
             .populate('jobType', 'jobTypeName')
+            .populate('user', 'companyName companyLogo companyVerified')
             .sort({createdAt: -1})
             .skip(pageSize*(page-1))
             .limit(pageSize);

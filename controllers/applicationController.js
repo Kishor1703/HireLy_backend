@@ -2,6 +2,33 @@ const Application = require('../models/Application');
 const Job = require('../models/jobModel');
 const User = require('../models/userModel');
 const ErrorResponse = require('../utils/errorResponse');
+const sendEmail = require('../utils/sendEmail');
+
+const statusLabel = {
+  pending: 'Pending',
+  shortlisted: 'Shortlisted',
+  rejected: 'Rejected',
+};
+
+const buildApplicationStatusEmail = ({ firstName, jobTitle, status }) => {
+  const readableStatus = statusLabel[status] || status;
+  const subject = `Application update: ${readableStatus}`;
+  const greetingName = (firstName || '').trim() || 'Candidate';
+  const text = `Hi ${greetingName}, your application for "${jobTitle}" has been ${readableStatus.toLowerCase()}.`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5;">
+      <h2 style="margin-bottom: 12px;">Application Status Updated</h2>
+      <p style="margin: 0 0 12px;">Hi ${greetingName},</p>
+      <p style="margin: 0 0 12px;">
+        Your application for <strong>${jobTitle}</strong> has been
+        <strong>${readableStatus}</strong>.
+      </p>
+      <p style="margin: 0;">Thank you for using Talent Sphere.</p>
+    </div>
+  `;
+
+  return { subject, text, html };
+};
 
 // Apply to a Job
 exports.applyToJob = async (req, res) => {
@@ -128,6 +155,82 @@ exports.getSeekerApplications = async (req, res, next) => {
       success: true,
       count: filtered.length,
       applications: filtered,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Job poster - update status of an application received on own job
+exports.updateApplicationStatus = async (req, res, next) => {
+  try {
+    if (req.user.role !== 2) {
+      return next(new ErrorResponse('Only job posters can update application status', 403));
+    }
+
+    const nextStatus = String(req.body.status || '').trim().toLowerCase();
+    if (!['pending', 'shortlisted', 'rejected'].includes(nextStatus)) {
+      return next(new ErrorResponse('Invalid application status', 400));
+    }
+
+    const application = await Application.findById(req.params.id);
+    if (!application) {
+      return next(new ErrorResponse('Application not found', 404));
+    }
+
+    const job = await Job.findById(application.job).select('title user');
+    if (!job) {
+      return next(new ErrorResponse('Job not found for this application', 404));
+    }
+
+    if (String(job.user) !== String(req.user._id)) {
+      return next(new ErrorResponse('You are not allowed to update this application', 403));
+    }
+
+    if (application.status === nextStatus) {
+      return res.status(200).json({
+        success: true,
+        message: `Application already marked as ${nextStatus}`,
+        application
+      });
+    }
+
+    application.status = nextStatus;
+    await application.save();
+
+    try {
+      const { subject, text, html } = buildApplicationStatusEmail({
+        firstName: application.firstName,
+        jobTitle: job.title || 'the selected role',
+        status: nextStatus,
+      });
+
+      await sendEmail({
+        to: application.email,
+        subject,
+        text,
+        html
+      });
+    } catch (mailError) {
+      console.error('Application status email failed:', mailError?.message || mailError);
+    }
+
+    await User.updateOne(
+      {
+        _id: application.seeker,
+        'jobsHistory.jobId': application.job,
+      },
+      {
+        $set: {
+          'jobsHistory.$.applicationStatus': nextStatus,
+        }
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `Application marked as ${nextStatus}`,
+      application,
     });
   } catch (error) {
     next(error);

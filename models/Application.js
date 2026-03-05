@@ -8,6 +8,11 @@ const applicationSchema = new mongoose.Schema({
   email: { type: String, trim: true, lowercase: true, required: true },
   phone: { type: String, trim: true, required: true },
   resume: { type: String, required: true },
+  status: {
+    type: String,
+    enum: ['pending', 'shortlisted', 'rejected'],
+    default: 'pending',
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Application', applicationSchema);

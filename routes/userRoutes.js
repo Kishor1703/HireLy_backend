@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { allUsers, singleUser, editUser, deleteUser, createUserJobsHistory, adminStats, updateCompanyApproval } = require("../controllers/userController");
+const { allUsers, singleUser, editUser, deleteUser, createUserJobsHistory, adminStats, updateCompanyApproval, updateCompanyVerification } = require("../controllers/userController");
 const { isAuthenticated, isAdmin } = require('../middleware/auth');
 
 
@@ -12,6 +12,7 @@ router.get('/allUsers', isAuthenticated, isAdmin, allUsers);
 router.get('/admin/users', isAuthenticated, isAdmin, allUsers);
 router.get('/admin/stats', isAuthenticated, isAdmin, adminStats);
 router.patch('/admin/company/:id/approval', isAuthenticated, isAdmin, updateCompanyApproval);
+router.patch('/admin/company/:id/verification', isAuthenticated, isAdmin, updateCompanyVerification);
 
 // /api/user/id
 router.get('/user/:id', isAuthenticated, singleUser);

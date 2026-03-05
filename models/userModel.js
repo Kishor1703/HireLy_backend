@@ -125,6 +125,10 @@ const userSchema = new mongoose.Schema({
             return this.role === 2 ? 'pending' : 'approved';
         }
     },
+    companyVerified: {
+        type: Boolean,
+        default: false
+    },
     isEmailVerified: {
         type: Boolean,
         default: false
