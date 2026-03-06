@@ -93,21 +93,37 @@ exports.showJobs = async(req, res, next) => {
     let locations = [];
     const jobByLocation = await Job.find({}, {location: 1});
     jobByLocation.forEach(val =>{
-        locations.push(val.location);
+        const normalizedLocation = (val.location || '').trim();
+        if (normalizedLocation) {
+            locations.push(normalizedLocation);
+        }
     });
     let setUniqueLocation = [...new Set(locations)];
-    const location = req.query.location;
-    const locationFilter = location ? location : setUniqueLocation;
+    const location = (req.query.location || '').trim();
+
+    const filters = { ...keyword };
+
+    if (cat) {
+        filters.jobType = cat;
+    } else if (ids.length) {
+        filters.jobType = { $in: ids };
+    }
+
+    if (location) {
+        filters.location = new RegExp(`^${location.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+    } else if (setUniqueLocation.length) {
+        filters.location = { $in: setUniqueLocation };
+    }
 
 
     // enable pagination
     const pageSize = 5;
     const page = Number(req.query.pageNumber) || 1;
     //const count = await Job.find({}).estimatedDocumentCount();
-    const count = await Job.find({...keyword, jobType: categ, location: locationFilter}).countDocuments();
+    const count = await Job.countDocuments(filters);
 
     try {
-        const jobs = await Job.find({...keyword, jobType: categ, location: locationFilter})
+        const jobs = await Job.find(filters)
             .populate('jobType', 'jobTypeName')
             .populate('user', 'companyName companyLogo companyVerified')
             .sort({createdAt: -1})
