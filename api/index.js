@@ -12,6 +12,7 @@ const authRoutes = require("../routes/authRoutes");
 const userRoutes = require("../routes/userRoutes");
 const jobsTypeRoutes = require("../routes/jobsTypeRoutes");
 const jobsRoutes = require("../routes/jobsRoutes");
+const jobLocationRoutes = require("../routes/jobLocationRoutes");
 const applicationRoutes = require("../routes/applicationRoutes");
 // const serverless = require("serverless-http");
 const app = express();
@@ -66,6 +67,7 @@ app.options("*", cors(corsOptions));
 app.use("/api", authRoutes);
 app.use("/api", userRoutes);
 app.use("/api", jobsTypeRoutes);
+app.use("/api", jobLocationRoutes);
 app.use("/api", jobsRoutes);
 app.use("/api/applications", applicationRoutes);
 

@@ -25,7 +25,14 @@ const jobSchema = new mongoose.Schema({
 
     location : {
         type: String,
+        trim: true,
+        default: "",
     },
+
+    locations: [{
+        type: ObjectId,
+        ref: "JobLocation",
+    }],
 
     available : {
         type: Boolean,
