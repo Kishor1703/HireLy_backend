@@ -4,6 +4,7 @@ const JobLocation = require('../models/jobLocationModel');
 const ErrorResponse = require('../utils/errorResponse');
 
 const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const buildLocationSearchRegex = (name = '') => new RegExp(`(^|\\s*,\\s*)${escapeRegex(name)}(\\s*,\\s*|$)`, 'i');
 
 const normalizeLocationIds = (value) => {
     if (Array.isArray(value)) {
@@ -179,7 +180,7 @@ exports.showJobs = async(req, res, next) => {
                     { locations: { $in: selectedLocationIds } },
                     ...(locationNames.length ? [{
                         location: {
-                            $in: locationNames.map((name) => new RegExp(`^${escapeRegex(name)}$`, 'i'))
+                            $in: locationNames.map((name) => buildLocationSearchRegex(name))
                         }
                     }] : [])
                 ]
