@@ -1,6 +1,5 @@
-const dns = require('dns');
-// Configure DNS
-dns.setServers(['8.8.8.8'],['8.8.4.4']);
+const dns = require("dns");
+dns.setServers(["8.8.8.8", "8.8.4.4"]);
 const express = require("express");
 const mongoose = require("mongoose");
 const morgan = require("morgan");
