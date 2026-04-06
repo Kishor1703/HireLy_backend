@@ -3,6 +3,7 @@ const Job = require('../models/jobModel');
 const User = require('../models/userModel');
 const ErrorResponse = require('../utils/errorResponse');
 const sendEmail = require('../utils/sendEmail');
+const { getDefaultApplicationForm } = require('../utils/applicationForm');
 
 const statusLabel = {
   pending: 'Pending',
@@ -32,14 +33,13 @@ const buildApplicationStatusEmail = ({ firstName, jobTitle, status }) => {
 
 // Apply to a Job
 exports.applyToJob = async (req, res) => {
-  const { jobId, resume, firstName, lastName, email, phone } = req.body;
+  const { jobId, answers } = req.body;
   const seekerId = req.user._id;
-  const normalizedResume = String(resume || '').trim();
 
   try {
-    if (!jobId || !normalizedResume) {
+    if (!jobId) {
       return res.status(400).json({
-        message: 'jobId and resume are required',
+        message: 'jobId is required',
       });
     }
 
@@ -53,25 +53,54 @@ exports.applyToJob = async (req, res) => {
       return res.status(400).json({ message: 'You already applied for this job' });
     }
 
-    const applicantFirstName = (firstName || req.user.firstName || '').trim();
-    const applicantLastName = (lastName || req.user.lastName || '').trim();
-    const applicantEmail = (email || req.user.email || '').trim().toLowerCase();
-    const applicantPhone = (phone || 'Not provided').trim();
+    const formFields = (Array.isArray(job.applicationForm) && job.applicationForm.length
+      ? job.applicationForm
+      : getDefaultApplicationForm()).filter((field) => field.enabled);
+    const incomingAnswers = (answers && typeof answers === 'object' && !Array.isArray(answers)) ? answers : {};
+    const normalizedAnswers = [];
 
-    if (!applicantFirstName || !applicantLastName || !applicantEmail) {
-      return res.status(400).json({
-        message: 'Applicant details are missing. Please complete your application details.',
+    for (const field of formFields) {
+      const value = String(incomingAnswers[field.id] || '').trim();
+      if (field.required && !value) {
+        return res.status(400).json({ message: `${field.label} is required` });
+      }
+      if (field.type === 'select' && value && Array.isArray(field.options) && field.options.length && !field.options.includes(value)) {
+        return res.status(400).json({ message: `Invalid value for ${field.label}` });
+      }
+      normalizedAnswers.push({
+        fieldId: field.id,
+        label: field.label,
+        type: field.type,
+        value,
       });
+    }
+
+    const answerMap = Object.fromEntries(normalizedAnswers.map((item) => [item.fieldId, item.value]));
+    const fullName = String(answerMap.fullName || `${req.user.firstName || ''} ${req.user.lastName || ''}`).trim();
+    const [applicantFirstName = '', ...restName] = fullName.split(/\s+/).filter(Boolean);
+    const applicantLastName = restName.join(' ').trim();
+    const applicantEmail = String(answerMap.email || req.user.email || '').trim().toLowerCase();
+    const applicantPhone = String(answerMap.phone || '').trim();
+    const applicantLocation = String(answerMap.location || '').trim();
+    const applicantExperienceLevel = String(answerMap.experienceLevel || '').trim();
+    const normalizedResume = String(answerMap.resume || '').trim();
+
+    if (!applicantEmail || !normalizedResume) {
+      return res.status(400).json({ message: 'Email and resume are required' });
     }
 
     const application = new Application({
       job: jobId,
       seeker: seekerId,
+      fullName,
       firstName: applicantFirstName,
       lastName: applicantLastName,
       email: applicantEmail,
       phone: applicantPhone,
+      location: applicantLocation,
+      experienceLevel: applicantExperienceLevel,
       resume: normalizedResume,
+      answers: normalizedAnswers,
     });
     await application.save();
 
@@ -104,6 +133,7 @@ exports.applyToJob = async (req, res) => {
 
     res.status(201).json({ message: 'Application submitted successfully' });
   } catch (err) {
+    console.error('applyToJob failed:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };

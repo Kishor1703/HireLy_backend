@@ -1,7 +1,46 @@
 const mongoose = require("mongoose");
 const {ObjectId} = mongoose.Schema;
 
-
+const applicationFieldSchema = new mongoose.Schema({
+    id: {
+        type: String,
+        trim: true,
+        required: true,
+    },
+    label: {
+        type: String,
+        trim: true,
+        required: true,
+        maxlength: 120,
+    },
+    type: {
+        type: String,
+        enum: ['text', 'email', 'number', 'textarea', 'select', 'date', 'file'],
+        required: true,
+    },
+    required: {
+        type: Boolean,
+        default: false,
+    },
+    enabled: {
+        type: Boolean,
+        default: true,
+    },
+    system: {
+        type: Boolean,
+        default: false,
+    },
+    options: [{
+        type: String,
+        trim: true,
+    }],
+    placeholder: {
+        type: String,
+        trim: true,
+        maxlength: 200,
+        default: '',
+    },
+}, { _id: false });
 
 const jobSchema = new mongoose.Schema({
     title : {
@@ -58,6 +97,10 @@ const jobSchema = new mongoose.Schema({
     companyLogo: {
         type: String,
         trim: true
+    },
+    applicationForm: {
+        type: [applicationFieldSchema],
+        default: undefined,
     },
 
 }, {timestamps:true})

@@ -2,6 +2,7 @@ const Job = require('../models/jobModel');
 const JobType = require('../models/jobTypeModel');
 const JobLocation = require('../models/jobLocationModel');
 const ErrorResponse = require('../utils/errorResponse');
+const { getDefaultApplicationForm, validateApplicationForm } = require('../utils/applicationForm');
 
 const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const buildLocationSearchRegex = (name = '') => new RegExp(`(^|\\s*,\\s*)${escapeRegex(name)}(\\s*,\\s*|$)`, 'i');
@@ -35,6 +36,9 @@ const decorateJob = (job) => {
     return {
         ...currentJob,
         location: buildLocationLabel(currentJob.locations || [], currentJob.location),
+        applicationForm: Array.isArray(currentJob.applicationForm) && currentJob.applicationForm.length
+            ? currentJob.applicationForm
+            : getDefaultApplicationForm(),
     };
 };
 
@@ -67,6 +71,11 @@ exports.createJob = async(req, res, next) => {
             return next(new ErrorResponse("One or more selected locations are invalid", 400));
         }
 
+        const { error: formError, form: applicationForm } = validateApplicationForm(req.body.applicationForm);
+        if (formError) {
+            return next(new ErrorResponse(formError, 400));
+        }
+
         const job = await Job.create({
             title: req.body.title,
             description: req.body.description,
@@ -76,7 +85,8 @@ exports.createJob = async(req, res, next) => {
             jobType: req.body.jobType,
             user: req.user.id,
             companyName,
-            companyLogo
+            companyLogo,
+            applicationForm
         });
 
         const populatedJob = await Job.findById(job._id)
@@ -112,6 +122,13 @@ exports.singleJob = async(req, res, next) => {
 exports.updateJob = async(req, res, next) => {
     try {
         const payload = { ...req.body };
+        if (payload.applicationForm !== undefined) {
+            const { error: formError, form } = validateApplicationForm(payload.applicationForm);
+            if (formError) {
+                return next(new ErrorResponse(formError, 400));
+            }
+            payload.applicationForm = form;
+        }
         if (payload.locations !== undefined || payload.location !== undefined) {
             const locationIds = normalizeLocationIds(payload.locations ?? payload.location);
             if (!locationIds.length) {
@@ -264,11 +281,19 @@ exports.updatePosterJob = async (req, res, next) => {
             return next(new ErrorResponse("You are not allowed to update this job", 403));
         }
 
-        const allowedFields = ['title', 'description', 'salary', 'locations', 'location', 'jobType'];
+        const allowedFields = ['title', 'description', 'salary', 'locations', 'location', 'jobType', 'applicationForm'];
         const payload = {};
         allowedFields.forEach((field) => {
             if (req.body[field] !== undefined) payload[field] = req.body[field];
         });
+
+        if (payload.applicationForm !== undefined) {
+            const { error: formError, form } = validateApplicationForm(payload.applicationForm);
+            if (formError) {
+                return next(new ErrorResponse(formError, 400));
+            }
+            payload.applicationForm = form;
+        }
 
         if (payload.locations !== undefined || payload.location !== undefined) {
             const locationIds = normalizeLocationIds(payload.locations ?? payload.location);
