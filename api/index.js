@@ -6,6 +6,7 @@ const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const path = require("path");
 require("dotenv").config({ path: path.resolve(__dirname, ".env") });
+require("dotenv").config({ path: path.resolve(__dirname, "..", ".env") });
 
 const errorHandler = require("../middleware/error");
 const authRoutes = require("../routes/authRoutes");
@@ -43,15 +44,24 @@ app.use(
   })
 );
 app.use(cookieParser());
+const normalizeOrigin = (origin) => origin.replace(/\/+$/, "");
 const allowedOrigins = [
-  (process.env.FRONTEND_ORIGIN ||"https://talent-sphere-qqrm.vercel.app/").replace(/\/$/, ""),
-  "https://hire-ly.vercel.app/","https://talent-sphere-qqrm.vercel.app/","https://talent-sphere-qqrm.vercel.app/".replace(/\/$/, ""),
-  ,
-];
+  process.env.FRONTEND_ORIGIN,
+  process.env.CLIENT_URL,
+  "https://hire-ly.vercel.app",
+  "https://hire-ly-izmm.vercel.app",
+  "https://talent-sphere-qqrm.vercel.app",
+  "http://localhost:3000",
+  "http://localhost:5173",
+]
+  .filter(Boolean)
+  .flatMap((origin) => origin.split(","))
+  .map((origin) => normalizeOrigin(origin.trim()))
+  .filter(Boolean);
 const corsOptions = {
   origin(origin, callback) {
     if (!origin) return callback(null, true);
-    const normalizedOrigin = origin.replace(/\/$/, "");
+    const normalizedOrigin = normalizeOrigin(origin);
     if (allowedOrigins.includes(normalizedOrigin)) {
       return callback(null, true);
     }
